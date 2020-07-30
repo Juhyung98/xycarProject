@@ -1,0 +1,121 @@
+#!/usr/bin/python
+
+import rospy
+import math
+import time
+from std_msgs.msg import Int32MultiArray
+
+xycar_sub = Int32MultiArray()
+xycar_sub.data = [0,0,0,0,0]
+baMM = False
+
+def callback(msg):
+    xycar_sub.data[0] = msg.data[0]
+    xycar_sub.data[1] = msg.data[1]
+    xycar_sub.data[2] = msg.data[2]
+    xycar_sub.data[3] = msg.data[6]
+    xycar_sub.data[4] = msg.data[7]
+    print(msg.data)
+
+def collision():
+    global baMM
+    for i in xycar_sub.data:
+        if i < 30 and 0 < i: 
+            baMM = True
+    return baMM    
+
+
+# def setWF_direction():
+#   wf_dir= 'WF_LEFT'
+#   if xycar_sub.data[0] < 20:
+
+#   case OBS_R:
+#   case OBS_FR:
+#   case OBS_FR_R:
+#   case OBS_F_R:
+#     wf_dir= WF_RIGHT;
+#     break;
+#   case OBS_F:
+#     // choose the side having the shorter distance
+#     if( obs_dist_[FRIGHT] < obs_dist_[FLEFT] )
+#       wf_dir= WF_RIGHT;
+#     break;
+#   case OBS_ALL:
+#     // choose the direction to the goal
+#     break;
+#   case OBS_L_R:
+#     break;
+#   default: // wf_dir= WF_LEFT cases: OBS_L, OBS_L_FL, OBS_L_F, OBS_FL, OBS_CLEAR
+#     break;
+#   }
+
+#   return wf_dir;
+
+# def print_my_pose():
+#     global last,x,y,theta
+#     orientation = 0
+    
+#     cur = rospy.Time.now()
+#     dt = (cur-last).to_sec()
+#     theta_dot = math.tan(angle) * (velocity / 110)
+#     theta += theta_dot * dt
+#     x_dot = velocity * math.cos(theta) ## no angle it must be an omega
+#     x += x_dot * dt
+#     y_dot = velocity * math.sin(theta)
+#     y += y_dot * dt
+#     print(x, y)
+#     last = cur
+
+
+    
+rospy.init_node('guide')
+motor_pub = rospy.Publisher('xycar_motor_msg', Int32MultiArray, queue_size=1)
+ultra_sub = rospy.Subscriber('ultrasonic', Int32MultiArray, callback)
+r = rospy.Rate(100)
+last = rospy.Time.now()
+x = 0
+y = 0
+theta = 0
+xycar_msg = Int32MultiArray()
+
+
+while not rospy.is_shutdown():
+   
+    angle = 0 ## I think the max angle is 45 degree
+    velocity = 10
+    # if xycar_sub.data[2] > 150:
+    #     angle = math.atan(136/float(xycar_sub.data[6]))*100
+    if collision() == True:
+        temp = min(xycar_sub.data)
+        idx = xycar_sub.data.index(temp)
+        while temp > xycar_sub.data[idx]:
+            velocity = -15
+            angle = 0
+            # if xycar_sub.data[0] + xycar_sub.data[7] < xycar_sub.data[2] + xycar_sub.data[6]: ##left < right
+            #     angle = -20
+            # elif xycar_sub.data[0] + xycar_sub.data[7] > xycar_sub.data[2] + xycar_sub.data[6]: ##left < right
+            #     angle = 20
+            # elif xycar_sub.data[0] + xycar_sub.data[7] == xycar_sub.data[2] + xycar_sub.data[6]: ##left < right
+            #     angle = 0        
+            xycar_msg.data = [angle, velocity]
+            motor_pub.publish(xycar_msg)
+        baMM = False
+        # xycar_sub.data[2] > 150:
+        # angle = math.atan(110/float(xycar_sub.data[6]))*100
+    # print_my_pose()
+    else:
+        if xycar_sub.data[2] > xycar_sub.data[1]:
+            angle = 30
+        # elif xycar_sub.data[2] < xycar_sub.data[1]:
+        #     angle = -30    
+        xycar_msg.data = [angle, velocity]
+        motor_pub.publish(xycar_msg)
+    #r.sleep()
+
+# while not rospy.is_shutdown():
+#     angle = 0 ## I think the max angle is 45 degree
+#     velocity = 30
+#     if xycar_sub.data[2] > 150:
+#         angle = math.atan(110/float(xycar_sub.data[6]))*100
+#     xycar_msg.data = [angle, velocity]
+#     motor_pub.publish(xycar_msg)
